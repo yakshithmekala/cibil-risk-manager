@@ -69,16 +69,22 @@ if (!process.env.MONGO_URI) {
 function calculateCIBIL(data) {
   let score = 300;
 
-  score += (data.paymentHistory / 100) * 0.35 * 600;
-  score += ((100 - data.creditUtilization) / 100) * 0.30 * 600;
-  score += Math.min(data.creditAge / 10, 1) * 0.15 * 600;
+  // Sanitize inputs for calculation
+  const paymentHistory = Math.max(0, Math.min(100, data.paymentHistory));
+  const creditUtilization = Math.max(0, Math.min(100, data.creditUtilization));
+  const creditAge = Math.max(0, data.creditAge);
+  const hardInquiries = Math.max(0, data.hardInquiries);
+
+  score += (paymentHistory / 100) * 0.35 * 600;
+  score += ((100 - creditUtilization) / 100) * 0.30 * 600;
+  score += Math.min(creditAge / 10, 1) * 0.15 * 600;
 
   if (data.creditMix === "good") score += 0.10 * 600;
   else if (data.creditMix === "average") score += 0.05 * 600;
 
-  score += Math.max((5 - data.hardInquiries) / 5, 0) * 0.10 * 600;
+  score += Math.max((5 - hardInquiries) / 5, 0) * 0.10 * 600;
 
-  return Math.min(Math.round(score), 900);
+  return Math.max(300, Math.min(Math.round(score), 900));
 }
 
 function getRiskLevel(score) {
@@ -93,19 +99,25 @@ function getSuggestions(data) {
   const tips = [];
 
   if (data.paymentHistory < 90)
-    tips.push("Pay EMIs and credit card bills on time.");
+    tips.push("Your payment history is below 90%. Focus on paying all bills on time to boost your score.");
+  else if (data.paymentHistory < 98)
+    tips.push("Maintain your good payment streak. Even one late payment can impact your score.");
 
   if (data.creditUtilization > 30)
-    tips.push("Keep credit utilization below 30%.");
+    tips.push(`Your credit utilization is high (${data.creditUtilization}%). Try to keep it below 30% by paying down balances.`);
 
   if (data.hardInquiries > 2)
-    tips.push("Avoid applying for multiple loans in short time.");
+    tips.push("You have multiple hard inquiries. Limit new credit applications for the next 6 months.");
 
-  if (data.creditAge < 3)
-    tips.push("Maintain older credit accounts.");
+  if (data.creditAge < 5)
+    tips.push("Your credit history is relatively young. Time will naturally improve this factor; avoid closing old accounts.");
 
-  if (data.creditMix === "poor")
-    tips.push("Maintain a healthy mix of secured and unsecured loans.");
+  if (data.creditMix === "poor" || data.creditMix === "average")
+    tips.push("Consider a healthy mix of secured (e.g., car loan) and unsecured (e.g., credit card) credit over time.");
+
+  if (tips.length === 0) {
+    tips.push("Your financial profile looks strong! Continue maintaining these healthy habits.");
+  }
 
   return tips;
 }
@@ -288,6 +300,7 @@ app.get("/", (req, res) => {
 
 // ANALYZE SINGLE USER
 app.post("/analyze", authenticate, async (req, res) => {
+  console.log("Analyze request received from user:", req.user.userId);
   try {
     const {
       fullName,
@@ -298,14 +311,18 @@ app.post("/analyze", authenticate, async (req, res) => {
       hardInquiries
     } = req.body;
 
+    // Log received data for debugging
+    console.log("Request Payload:", { fullName, paymentHistory, creditUtilization, creditAge, creditMix, hardInquiries });
+
     if (
       !fullName ||
-      paymentHistory == null ||
-      creditUtilization == null ||
-      creditAge == null ||
+      paymentHistory === undefined || paymentHistory === null ||
+      creditUtilization === undefined || creditUtilization === null ||
+      creditAge === undefined || creditAge === null ||
       !creditMix ||
-      hardInquiries == null
+      hardInquiries === undefined || hardInquiries === null
     ) {
+      console.warn("Validation failed: Missing fields");
       return res.status(400).json({
         error: "All fields are required"
       });
@@ -313,16 +330,24 @@ app.post("/analyze", authenticate, async (req, res) => {
 
     const data = {
       fullName,
-      paymentHistory: Number(paymentHistory),
-      creditUtilization: Number(creditUtilization),
-      creditAge: Number(creditAge),
-      creditMix,
-      hardInquiries: Number(hardInquiries)
+      paymentHistory: Number(paymentHistory) || 0,
+      creditUtilization: Number(creditUtilization) || 0,
+      creditAge: Number(creditAge) || 0,
+      creditMix: creditMix || "poor",
+      hardInquiries: Number(hardInquiries) || 0
     };
+
+    // Edge case checks for numbers
+    if (isNaN(data.paymentHistory) || isNaN(data.creditUtilization) || isNaN(data.creditAge) || isNaN(data.hardInquiries)) {
+      console.warn("Validation failed: Non-numeric values provided");
+      return res.status(400).json({ error: "Numeric fields must contain valid numbers" });
+    }
 
     const estimatedScore = calculateCIBIL(data);
     const riskLevel = getRiskLevel(estimatedScore);
     const suggestions = getSuggestions(data);
+
+    console.log("Calculation results:", { estimatedScore, riskLevel, suggestionsCount: suggestions.length });
 
     const newAssessment = new Assessment({
       ...data,
@@ -333,6 +358,7 @@ app.post("/analyze", authenticate, async (req, res) => {
     });
 
     await newAssessment.save();
+    console.log("Assessment saved successfully to database");
 
     res.status(200).json({
       estimatedScore,
@@ -341,8 +367,8 @@ app.post("/analyze", authenticate, async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
+    console.error("Critical error in /analyze:", error);
+    res.status(500).json({ error: "Analysis failed: " + error.message });
   }
 });
 
@@ -421,6 +447,7 @@ app.delete("/users/:id", authenticate, async (req, res) => {
 });
 // ✅ UPDATE USER
 app.put("/users/:id", authenticate, async (req, res) => {
+  console.log(`Update request for assessment ${req.params.id} from user ${req.user.userId}`);
   try {
     const {
       fullName,
@@ -433,12 +460,16 @@ app.put("/users/:id", authenticate, async (req, res) => {
 
     const data = {
       fullName,
-      paymentHistory: Number(paymentHistory),
-      creditUtilization: Number(creditUtilization),
-      creditAge: Number(creditAge),
-      creditMix,
-      hardInquiries: Number(hardInquiries)
+      paymentHistory: Number(paymentHistory) || 0,
+      creditUtilization: Number(creditUtilization) || 0,
+      creditAge: Number(creditAge) || 0,
+      creditMix: creditMix || "poor",
+      hardInquiries: Number(hardInquiries) || 0
     };
+
+    if (isNaN(data.paymentHistory) || isNaN(data.creditUtilization) || isNaN(data.creditAge) || isNaN(data.hardInquiries)) {
+      return res.status(400).json({ error: "Invalid numeric values" });
+    }
 
     const estimatedScore = calculateCIBIL(data);
     const riskLevel = getRiskLevel(estimatedScore);
@@ -455,8 +486,12 @@ app.put("/users/:id", authenticate, async (req, res) => {
       { new: true }
     );
 
-    if (!updatedAssessment) return res.status(404).json({ error: "Assessment not found" });
+    if (!updatedAssessment) {
+      console.warn("Assessment not found for update");
+      return res.status(404).json({ error: "Assessment not found" });
+    }
 
+    console.log("Assessment updated successfully");
     res.status(200).json(updatedAssessment);
 
   } catch (error) {
@@ -467,11 +502,33 @@ app.put("/users/:id", authenticate, async (req, res) => {
 
 // Serve static files from the React app (Production)
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/build')));
+  const buildPath = path.join(__dirname, '../client/build');
+  console.log(`Serving static files from: ${buildPath}`);
 
-  // SPA catch-all: Express 5 uses (.*) for wildcards
-  app.get('(.*)', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+  app.use(express.static(buildPath));
+
+  // Health check for production
+  app.get('/api/health', (req, res) => {
+    res.status(200).json({
+      status: 'OK',
+      environment: 'production',
+      db: mongoose.connection.readyState === 1 ? 'connected' : 'connecting/disconnected'
+    });
+  });
+
+  // SPA catch-all: Using * for better compatibility
+  app.get('*', (req, res) => {
+    const indexPath = path.join(buildPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(404).send("Frontend build not found. Please ensure 'npm run build' was executed.");
+    }
+  });
+} else {
+  // Development health check
+  app.get('/api/health', (req, res) => {
+    res.status(200).json({ status: 'OK', environment: 'development' });
   });
 }
 
@@ -479,16 +536,27 @@ if (process.env.NODE_ENV === 'production') {
 // DATABASE CONNECTION
 // ===============================
 
+console.log("Attempting to connect to MongoDB...");
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log("✅ MongoDB Connected Successfully");
 
     const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => {
+    app.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`🌍 URL: http://0.0.0.0:${PORT}`);
     });
   })
   .catch((err) => {
     console.error("❌ MongoDB Connection Error:");
     console.error(err.message);
+    console.error("Please Ensure:");
+    console.error("1. MONGO_URI is correctly set in environment variables");
+    console.error("2. Your IP address is whitelisted in MongoDB Atlas (0.0.0.0/0 for all)");
+
+    // In production, we start the server anyway so it doesn't just "crash" without logs on some platforms
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`⚠️ Server started in LIMITED MODE on port ${PORT} (Database connection failed)`);
+    });
   });

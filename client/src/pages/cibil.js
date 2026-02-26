@@ -13,20 +13,26 @@ const Cibil = () => {
     });
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
     const navigate = useNavigate();
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+        if (error) setError(null);
     };
 
     const handleAnalyze = async (e) => {
         e.preventDefault();
         setLoading(true);
+        setError(null);
         try {
             const res = await cibilAPI.analyze(formData);
             setResult(res.data);
+            alert("Analysis successful!");
         } catch (err) {
             console.error(err);
+            const msg = err.response?.data?.error || "Failed to analyze risk profile. Please check your inputs.";
+            setError(msg);
         } finally {
             setLoading(false);
         }
@@ -43,6 +49,11 @@ const Cibil = () => {
 
                 {!result ? (
                     <form onSubmit={handleAnalyze} className="animate-up">
+                        {error && (
+                            <div className="glass" style={{ padding: '15px 20px', marginBottom: '30px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#f87171', borderRadius: '15px', textAlign: 'center' }}>
+                                ⚠️ {error}
+                            </div>
+                        )}
                         <div style={{ marginBottom: '40px' }}>
                             <h3 className="outfit" style={{ fontSize: '1.2rem', color: 'var(--primary)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <span style={{ width: '24px', height: '2px', background: 'var(--primary)' }}></span>

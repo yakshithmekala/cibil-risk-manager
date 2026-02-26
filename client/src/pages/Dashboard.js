@@ -54,14 +54,17 @@ const Dashboard = () => {
         hardInquiries: 0
     });
     const [analyzing, setAnalyzing] = useState(false);
+    const [error, setError] = useState(null);
     const { logout, user } = useAuth();
 
     const fetchHistory = async () => {
         try {
             const res = await cibilAPI.getUsers();
             setHistory(res.data);
+            setError(null);
         } catch (err) {
             console.error(err);
+            setError("Failed to fetch assessment history.");
         }
     };
 
@@ -71,14 +74,16 @@ const Dashboard = () => {
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+        if (error) setError(null);
     };
 
     const handleAnalyze = async (e) => {
         e.preventDefault();
         setAnalyzing(true);
+        setError(null);
         try {
             await cibilAPI.analyze(formData);
-            fetchHistory();
+            await fetchHistory();
             setFormData({
                 fullName: '',
                 paymentHistory: 100,
@@ -87,8 +92,11 @@ const Dashboard = () => {
                 creditMix: 'good',
                 hardInquiries: 0
             });
+            alert("Analysis completed successfully!");
         } catch (err) {
             console.error(err);
+            const msg = err.response?.data?.error || "Failed to calculate CIBIL score. Please check your inputs.";
+            setError(msg);
         } finally {
             setAnalyzing(false);
         }
@@ -215,6 +223,11 @@ const Dashboard = () => {
                         <h3 className="outfit" style={{ fontSize: '1.2rem', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ color: 'var(--primary)' }}>✦</span> Quick Audit
                         </h3>
+                        {error && (
+                            <div className="glass" style={{ padding: '10px 15px', marginBottom: '20px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#f87171', borderRadius: '12px', fontSize: '0.85rem' }}>
+                                ⚠️ {error}
+                            </div>
+                        )}
                         <form onSubmit={handleAnalyze}>
                             <div className="input-group" style={{ marginBottom: '15px' }}>
                                 <label style={{ fontSize: '0.8rem' }}>Client Name</label>

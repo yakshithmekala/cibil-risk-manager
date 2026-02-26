@@ -1,0 +1,16 @@
+{
+    "version": 2,
+    "buildCommand": "cd client && npm install && npm run build",
+    "outputDirectory": "client/build",
+    "framework": "create-react-app",
+    "rewrites": [
+        {
+            "source": "/(auth|analyze|upload-csv|users|api)/(.*)",
+            "destination": "https://your-backend-url.onrender.com/$1/$2"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/index.html"
+        }
+    ]
+}

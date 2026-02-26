@@ -6,15 +6,22 @@ RUN npm install
 COPY client/ ./
 RUN npm run build
 
-# Build Stage for Server
+# Production Stage
 FROM node:20-alpine
 WORKDIR /app
-COPY server/package*.json ./server/
-RUN cd server && npm install
-COPY server/ ./server/
-COPY --from=client-build /app/client/build ./client/build
+ENV NODE_ENV=production
+
+# Setup server
+WORKDIR /app/server
+COPY server/package*.json ./
+RUN npm install --production
+COPY server/ ./
+
+# Create uploads directory
+RUN mkdir -p uploads && chmod 777 uploads
+
+# Copy client build to a predictable location
+COPY --from=client-build /app/client/build ../client/build
 
 EXPOSE 5000
-WORKDIR /app/server
-ENV NODE_ENV=production
 CMD ["node", "server.js"]
