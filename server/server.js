@@ -469,8 +469,8 @@ app.put("/users/:id", authenticate, async (req, res) => {
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../client/build')));
 
-  // SPA catch-all: Express 5 requires named parameters for wildcards
-  app.get('/:any*', (req, res) => {
+  // SPA catch-all: Express 5 uses (.*) for wildcards
+  app.get('(.*)', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
   });
 }
