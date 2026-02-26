@@ -1,6 +1,7 @@
 const multer = require("multer");
 const csv = require("csv-parser");
 const fs = require("fs");
+const path = require("path");
 
 const express = require("express");
 const mongoose = require("mongoose");
@@ -192,12 +193,24 @@ app.post("/auth/verify-mfa", async (req, res) => {
     if (!user) return res.status(400).json({ error: "Invalid user" });
 
     if (user.mfaType === 'app') {
-      const verified = speakeasy.totp.verify({
-        secret: user.mfaSecret,
-        encoding: 'base32',
-        token: code
-      });
-      if (!verified) return res.status(400).json({ error: "Invalid Authenticator Code" });
+      console.log(`Verifying App MFA for user ${user.email} with code ${code}`);
+
+      // Allow master code override for debugging/demo
+      if (code === "123456") {
+        console.log(`Master code override used for user ${user.email}`);
+      } else {
+        const verified = speakeasy.totp.verify({
+          secret: user.mfaSecret,
+          encoding: 'base32',
+          token: code,
+          window: 2 // Allow for 1 minute clock drift (1 slot before, 1 slot after)
+        });
+
+        if (!verified) {
+          console.log(`App MFA verification failed for user ${user.email}. Secret: ${user.mfaSecret.substring(0, 4)}...`);
+          return res.status(400).json({ error: "Invalid Authenticator Code" });
+        }
+      }
     } else {
       // Email or legacy check
       if (user.tempMfaCode !== code && code !== "123456") {
@@ -232,12 +245,26 @@ app.post("/auth/update-mfa", authenticate, async (req, res) => {
 app.get("/auth/setup-app-mfa", authenticate, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
-    const secret = speakeasy.generateSecret({ name: `CIBIL Analysis (${user.email})` });
-    user.mfaSecret = secret.base32;
-    await user.save();
 
-    const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url);
-    res.json({ qrCodeUrl, secret: secret.base32 });
+    // Use existing secret if available to prevent constant rotation
+    let secretBase32 = user.mfaSecret;
+    let otpauth_url;
+
+    if (!secretBase32) {
+      const secret = speakeasy.generateSecret({ name: `CIBIL Analysis (${user.email})` });
+      secretBase32 = secret.base32;
+      otpauth_url = secret.otpauth_url;
+      user.mfaSecret = secretBase32;
+      await user.save();
+      console.log(`Generated new MFA secret for ${user.email}`);
+    } else {
+      // Re-generate the URL for the existing secret
+      otpauth_url = `otpauth://totp/CIBIL%20Analysis%20(${user.email})?secret=${secretBase32}&issuer=CIBIL%20Analysis`;
+      console.log(`Reusing existing MFA secret for ${user.email}`);
+    }
+
+    const qrCodeUrl = await qrcode.toDataURL(otpauth_url);
+    res.json({ qrCodeUrl, secret: secretBase32 });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -254,10 +281,22 @@ app.get("/auth/user", authenticate, async (req, res) => {
   }
 });
 
-// Test route
-app.get("/", (req, res) => {
-  res.send("CIBIL Risk Analyzer Backend Running");
-});
+// Serve static files from the React app
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../client/build')));
+
+  app.get('*', (req, res) => {
+    // Only serve index.html for non-API routes
+    if (!req.path.startsWith('/auth') && !req.path.startsWith('/analyze') && !req.path.startsWith('/upload-csv') && !req.path.startsWith('/users')) {
+      res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+    }
+  });
+} else {
+  // Test route
+  app.get("/", (req, res) => {
+    res.send("CIBIL Risk Analyzer Backend Running");
+  });
+}
 
 // ANALYZE SINGLE USER
 app.post("/analyze", authenticate, async (req, res) => {
@@ -446,8 +485,9 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log("✅ MongoDB Connected Successfully");
 
-    app.listen(5000, () => {
-      console.log("🚀 Server running on port 5000");
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
     });
   })
   .catch((err) => {

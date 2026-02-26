@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { cibilAPI } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
@@ -102,6 +103,31 @@ const Dashboard = () => {
                 console.error(err);
             }
         }
+    };
+
+    const handleExport = () => {
+        if (history.length === 0) {
+            alert("No data to export");
+            return;
+        }
+
+        const exportData = history.map(item => ({
+            'Full Name': item.fullName,
+            'Estimated Score': item.estimatedScore,
+            'Risk Level': item.riskLevel,
+            'Payment History (%)': item.paymentHistory,
+            'Credit Utilization (%)': item.creditUtilization,
+            'Credit Age (Years)': item.creditAge,
+            'Credit Mix': item.creditMix,
+            'Hard Inquiries': item.hardInquiries,
+            'Date': new Date(item.createdAt).toLocaleDateString(),
+            'Suggestions': item.suggestions ? item.suggestions.join(', ') : ''
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Assessments");
+        XLSX.writeFile(workbook, `CIBIL_Assessments_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
 
     // Chart Data Processing
@@ -252,7 +278,7 @@ const Dashboard = () => {
                     <div className="glass" style={{ flex: 1, padding: '25px', minHeight: '400px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                             <h3 className="outfit" style={{ fontSize: '1.1rem' }}>Assessment Logs</h3>
-                            <button className="btn-secondary" style={{ fontSize: '0.7rem' }}>Export All</button>
+                            <button onClick={handleExport} className="btn-secondary" style={{ fontSize: '0.7rem' }}>Export All</button>
                         </div>
                         <div style={{ overflowY: 'auto', maxHeight: '500px' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
