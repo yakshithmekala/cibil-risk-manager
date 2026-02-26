@@ -281,22 +281,10 @@ app.get("/auth/user", authenticate, async (req, res) => {
   }
 });
 
-// Serve static files from the React app
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/build')));
-
-  app.get('*', (req, res) => {
-    // Only serve index.html for non-API routes
-    if (!req.path.startsWith('/auth') && !req.path.startsWith('/analyze') && !req.path.startsWith('/upload-csv') && !req.path.startsWith('/users')) {
-      res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
-    }
-  });
-} else {
-  // Test route
-  app.get("/", (req, res) => {
-    res.send("CIBIL Risk Analyzer Backend Running");
-  });
-}
+// Test route
+app.get("/", (req, res) => {
+  res.send("CIBIL Risk Analyzer Backend Running");
+});
 
 // ANALYZE SINGLE USER
 app.post("/analyze", authenticate, async (req, res) => {
@@ -476,6 +464,16 @@ app.put("/users/:id", authenticate, async (req, res) => {
     res.status(500).json({ error: "Update failed" });
   }
 });
+
+// Serve static files from the React app (Production)
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../client/build')));
+
+  // SPA catch-all: Express 5 requires named parameters for wildcards
+  app.get('/:any*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+  });
+}
 
 // ===============================
 // DATABASE CONNECTION
