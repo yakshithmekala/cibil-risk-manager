@@ -7,11 +7,21 @@ const assessmentSchema = new mongoose.Schema({
         required: true
     },
     fullName: { type: String, required: true },
-    paymentHistory: Number,
-    creditUtilization: Number,
-    creditAge: Number,
-    creditMix: String,
-    hardInquiries: Number,
+    // Core parameters for score calculation
+    paymentHistory: Number, // Percentage of on-time payments
+    creditUtilization: Number, // Percentage of credit used
+    creditAge: Number, // Number of years
+    creditMix: String, // "good", "average", "poor"
+    hardInquiries: Number, // Number of inquiries
+    
+    // Additional fields for realistic Credit Summary
+    totalAccounts: { type: Number, default: 0 },
+    activeLoans: { type: Number, default: 0 },
+    creditCards: { type: Number, default: 0 },
+    closedAccounts: { type: Number, default: 0 },
+    totalCreditLimit: { type: Number, default: 0 },
+    usedCreditLimit: { type: Number, default: 0 },
+    
     estimatedScore: Number,
     riskLevel: String,
     suggestions: [String],
@@ -22,3 +32,4 @@ const assessmentSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model("Assessment", assessmentSchema);
+

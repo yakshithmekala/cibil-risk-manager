@@ -195,6 +195,7 @@ const Dashboard = () => {
                         <div style={{ fontSize: '0.85rem', fontWeight: '600' }}>{user?.fullName}</div>
                         <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Premium Control</div>
                     </div>
+                    <Link to="/home" className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.8rem' }}>Home</Link>
                     <Link to="/profile" className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.8rem' }}>Profile</Link>
                     <button onClick={logout} className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.8rem', color: 'var(--danger)' }}>Logout</button>
                 </div>

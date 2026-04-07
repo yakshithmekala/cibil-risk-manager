@@ -29,7 +29,7 @@ const Login = () => {
             if (isSignup) {
                 const res = await authAPI.signup(formData);
                 login(res.data.token, res.data.user);
-                navigate('/dashboard');
+                navigate('/home');
             } else {
                 const res = await authAPI.login({ email: formData.email, password: formData.password });
                 if (res.data.mfaRequired) {
@@ -38,7 +38,7 @@ const Login = () => {
                     setMfaType(res.data.mfaType || 'email');
                 } else {
                     login(res.data.token, res.data.user);
-                    navigate('/dashboard');
+                    navigate('/home');
                 }
             }
         } catch (err) {
@@ -55,7 +55,7 @@ const Login = () => {
         try {
             const res = await authAPI.verifyMfa({ userId, code: mfaCode });
             login(res.data.token, res.data.user);
-            navigate('/dashboard');
+            navigate('/home');
         } catch (err) {
             setError(err.response?.data?.error || 'MFA verification failed');
         } finally {

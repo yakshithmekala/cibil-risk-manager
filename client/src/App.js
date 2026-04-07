@@ -5,6 +5,9 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/profile";
 import LiveBackground from "./components/LiveBackground";
+import Home from "./pages/Home";
+import CibilForm from "./pages/CibilForm";
+import CibilReport from "./pages/CibilReport";
 
 const PrivateRoute = ({ children }) => {
     const { user, loading } = useAuth();
@@ -15,7 +18,7 @@ const PrivateRoute = ({ children }) => {
 const AuthRedirect = ({ children }) => {
     const { user, loading } = useAuth();
     if (loading) return null;
-    return user ? <Navigate to="/dashboard" /> : children;
+    return user ? <Navigate to="/home" /> : children;
 };
 
 function App() {
@@ -25,6 +28,9 @@ function App() {
             <Router>
                 <Routes>
                     <Route path="/" element={<AuthRedirect><Login /></AuthRedirect>} />
+                    <Route path="/home" element={<PrivateRoute><Home /></PrivateRoute>} />
+                    <Route path="/cibil-form" element={<PrivateRoute><CibilForm /></PrivateRoute>} />
+                    <Route path="/cibil-report" element={<PrivateRoute><CibilReport /></PrivateRoute>} />
                     <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
                     <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
                     {/* Cibil is now integrated into Dashboard */}

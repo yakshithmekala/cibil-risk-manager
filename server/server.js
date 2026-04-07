@@ -70,22 +70,41 @@ function calculateCIBIL(data) {
   let score = 300;
 
   // Sanitize inputs for calculation
-  const paymentHistory = Math.max(0, Math.min(100, data.paymentHistory));
-  const creditUtilization = Math.max(0, Math.min(100, data.creditUtilization));
-  const creditAge = Math.max(0, data.creditAge);
-  const hardInquiries = Math.max(0, data.hardInquiries);
+  const paymentHistory = Math.max(0, Math.min(100, data.paymentHistory || 0));
+  const creditUtilization = Math.max(0, Math.min(100, data.creditUtilization || 0));
+  const creditAge = Math.max(0, data.creditAge || 0);
+  const hardInquiries = Math.max(0, data.hardInquiries || 0);
+  const totalAccounts = Math.max(0, data.totalAccounts || 0);
 
+  // 1. Payment History (35% weight)
   score += (paymentHistory / 100) * 0.35 * 600;
-  score += ((100 - creditUtilization) / 100) * 0.30 * 600;
+
+  // 2. Credit Utilization (30% weight) - Lower is better
+  // If utilization is very high (>70%), it impacts score significantly
+  let utilizationImpact = (100 - creditUtilization) / 100;
+  if (creditUtilization > 70) utilizationImpact *= 0.5; // Penalize high utilization
+  score += utilizationImpact * 0.30 * 600;
+
+  // 3. Credit History Age (15% weight) - Older is better
   score += Math.min(creditAge / 10, 1) * 0.15 * 600;
 
-  if (data.creditMix === "good") score += 0.10 * 600;
-  else if (data.creditMix === "average") score += 0.05 * 600;
+  // 4. Credit Mix & Exposure (10% weight)
+  // More accounts can sometimes be good if managed well
+  let mixScore = 0;
+  if (data.creditMix === "good") mixScore = 1.0;
+  else if (data.creditMix === "average") mixScore = 0.6;
+  else mixScore = 0.3;
+  
+  // Add bonus for having a healthy number of total accounts (e.g., 2-5)
+  if (totalAccounts > 2 && totalAccounts < 8) mixScore += 0.1;
+  score += Math.min(mixScore, 1) * 0.10 * 600;
 
+  // 5. Inquiries (10% weight) - Fewer is better
   score += Math.max((5 - hardInquiries) / 5, 0) * 0.10 * 600;
 
   return Math.max(300, Math.min(Math.round(score), 900));
 }
+
 
 function getRiskLevel(score) {
   if (score >= 750) return "Excellent";
@@ -308,24 +327,21 @@ app.post("/analyze", authenticate, async (req, res) => {
       creditUtilization,
       creditAge,
       creditMix,
-      hardInquiries
+      hardInquiries,
+      totalAccounts,
+      activeLoans,
+      creditCards,
+      closedAccounts,
+      totalCreditLimit,
+      usedCreditLimit
     } = req.body;
 
     // Log received data for debugging
     console.log("Request Payload:", { fullName, paymentHistory, creditUtilization, creditAge, creditMix, hardInquiries });
 
-    if (
-      !fullName ||
-      paymentHistory === undefined || paymentHistory === null ||
-      creditUtilization === undefined || creditUtilization === null ||
-      creditAge === undefined || creditAge === null ||
-      !creditMix ||
-      hardInquiries === undefined || hardInquiries === null
-    ) {
-      console.warn("Validation failed: Missing fields");
-      return res.status(400).json({
-        error: "All fields are required"
-      });
+    if (!fullName || paymentHistory === undefined || paymentHistory === null) {
+      console.warn("Validation failed: Missing mandatory fields");
+      return res.status(400).json({ error: "Name and Payment History are required" });
     }
 
     const data = {
@@ -334,7 +350,13 @@ app.post("/analyze", authenticate, async (req, res) => {
       creditUtilization: Number(creditUtilization) || 0,
       creditAge: Number(creditAge) || 0,
       creditMix: creditMix || "poor",
-      hardInquiries: Number(hardInquiries) || 0
+      hardInquiries: Number(hardInquiries) || 0,
+      totalAccounts: Number(totalAccounts) || 0,
+      activeLoans: Number(activeLoans) || 0,
+      creditCards: Number(creditCards) || 0,
+      closedAccounts: Number(closedAccounts) || 0,
+      totalCreditLimit: Number(totalCreditLimit) || 0,
+      usedCreditLimit: Number(usedCreditLimit) || 0
     };
 
     // Edge case checks for numbers
@@ -346,6 +368,7 @@ app.post("/analyze", authenticate, async (req, res) => {
     const estimatedScore = calculateCIBIL(data);
     const riskLevel = getRiskLevel(estimatedScore);
     const suggestions = getSuggestions(data);
+
 
     console.log("Calculation results:", { estimatedScore, riskLevel, suggestionsCount: suggestions.length });
 
@@ -361,10 +384,12 @@ app.post("/analyze", authenticate, async (req, res) => {
     console.log("Assessment saved successfully to database");
 
     res.status(200).json({
+      ...data,
       estimatedScore,
       riskLevel,
       suggestions
     });
+
 
   } catch (error) {
     console.error("Critical error in /analyze:", error);
@@ -455,7 +480,13 @@ app.put("/users/:id", authenticate, async (req, res) => {
       creditUtilization,
       creditAge,
       creditMix,
-      hardInquiries
+      hardInquiries,
+      totalAccounts,
+      activeLoans,
+      creditCards,
+      closedAccounts,
+      totalCreditLimit,
+      usedCreditLimit
     } = req.body;
 
     const data = {
@@ -464,7 +495,13 @@ app.put("/users/:id", authenticate, async (req, res) => {
       creditUtilization: Number(creditUtilization) || 0,
       creditAge: Number(creditAge) || 0,
       creditMix: creditMix || "poor",
-      hardInquiries: Number(hardInquiries) || 0
+      hardInquiries: Number(hardInquiries) || 0,
+      totalAccounts: Number(totalAccounts) || 0,
+      activeLoans: Number(activeLoans) || 0,
+      creditCards: Number(creditCards) || 0,
+      closedAccounts: Number(closedAccounts) || 0,
+      totalCreditLimit: Number(totalCreditLimit) || 0,
+      usedCreditLimit: Number(usedCreditLimit) || 0
     };
 
     if (isNaN(data.paymentHistory) || isNaN(data.creditUtilization) || isNaN(data.creditAge) || isNaN(data.hardInquiries)) {
@@ -485,6 +522,7 @@ app.put("/users/:id", authenticate, async (req, res) => {
       },
       { new: true }
     );
+
 
     if (!updatedAssessment) {
       console.warn("Assessment not found for update");
