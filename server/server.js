@@ -427,11 +427,14 @@ app.get("/api/simulate-profile", authenticate, async (req, res) => {
         creditMix: randomRow.Education === 'PhD' || randomRow.Education === 'Master' ? 'good' : 'average',
         hardInquiries: Math.floor(Math.random() * 3),
         totalAccounts: Math.floor(Math.random() * 6) + 2,
-        activeLoans: randomRow['Type of Loan'] ? 1 : 0,
+        activeLoans: randomRow['Type of Loan'] ? Math.floor(Math.random() * 2) + 1 : 0,
         creditCards: Math.floor(Math.random() * 3) + 1,
-        totalCreditLimit: Math.round(Number(randomRow.Income) * 2),
-        usedCreditLimit: Math.round((Number(randomRow.Income) * 2) * (Math.random() * 0.4))
+        totalCreditLimit: Math.round(Number(randomRow.Income || 500000) * 0.4), // 40% of income as limit
+        usedCreditLimit: Math.round(Number(randomRow.Income || 500000) * 0.4 * (Math.random() * 0.3)),
+        // Adding extra fields for unique exposure calculation
+        loanAmount: Math.round(Number(randomRow.Income || 500000) * (Math.random() * 3 + 1)),
       };
+
 
 
       res.status(200).json(simulatedData);

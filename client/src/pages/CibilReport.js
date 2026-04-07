@@ -53,8 +53,10 @@ const CibilReport = () => {
         totalCreditLimit,
         paymentHistory,
         creditUtilization,
-        creditAge
+        creditAge,
+        loanAmount
     } = reportData;
+
 
     // Generate a semi-realistic trend based on current score
     const generateTrend = (finalScore) => {
@@ -212,7 +214,8 @@ const CibilReport = () => {
                                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
                                     <td style={{ padding: '15px', fontWeight: '500' }}>Active Loans</td>
                                     <td style={{ padding: '15px' }}>{activeLoans}</td>
-                                    <td style={{ padding: '15px' }}>₹{(Number(activeLoans || 0) * 250000).toLocaleString()}</td>
+                                    <td style={{ padding: '15px' }}>₹{Number(loanAmount || (Number(activeLoans || 0) * 250000)).toLocaleString()}</td>
+
                                     <td style={{ padding: '15px' }}><span style={{ color: 'var(--success)', backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: '4px 10px', borderRadius: '6px', fontSize: '0.75rem' }}>Current</span></td>
                                 </tr>
                             )}
