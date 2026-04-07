@@ -421,17 +421,18 @@ app.get("/api/simulate-profile", authenticate, async (req, res) => {
       // Kaggle fields: Age,Gender,Marital Status,Education,Employment Status,Income,Credit Score,Total Debt
       const simulatedData = {
         fullName: `Simulated User (${randomRow.Gender || 'N/A'})`,
-        paymentHistory: Math.min(100, Math.max(70, 100 - (Math.random() * 15))), // Heuristic
-        creditUtilization: Math.min(100, Math.floor(Math.random() * 50) + 10), // Heuristic
-        creditAge: Number(randomRow.Age) > 25 ? Number(randomRow.Age) - 18 : 2,
+        paymentHistory: Math.round(Math.min(100, Math.max(70, 100 - (Math.random() * 15)))), 
+        creditUtilization: Math.round(Math.min(100, Math.floor(Math.random() * 50) + 10)), 
+        creditAge: Math.round(Number(randomRow.Age) > 25 ? Number(randomRow.Age) - 18 : 2),
         creditMix: randomRow.Education === 'PhD' || randomRow.Education === 'Master' ? 'good' : 'average',
         hardInquiries: Math.floor(Math.random() * 3),
         totalAccounts: Math.floor(Math.random() * 6) + 2,
         activeLoans: randomRow['Type of Loan'] ? 1 : 0,
         creditCards: Math.floor(Math.random() * 3) + 1,
-        totalCreditLimit: Number(randomRow.Income) * 2,
-        usedCreditLimit: (Number(randomRow.Income) * 2) * (Math.random() * 0.4)
+        totalCreditLimit: Math.round(Number(randomRow.Income) * 2),
+        usedCreditLimit: Math.round((Number(randomRow.Income) * 2) * (Math.random() * 0.4))
       };
+
 
       res.status(200).json(simulatedData);
     })
