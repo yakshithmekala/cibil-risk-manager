@@ -209,3 +209,57 @@ h4,
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-secondary);
 }
+
+/* Print Optimization */
+@media print {
+    body {
+        background-color: white !important;
+        color: black !important;
+    }
+
+    /* Target the container as well to make it white */
+    body > #root > div {
+        background: white !important;
+        padding: 0 !important;
+    }
+
+    .glass {
+        background: white !important;
+        border: 1px solid #ddd !important;
+        box-shadow: none !important;
+        color: black !important;
+        backdrop-filter: none !important;
+    }
+
+    h1, h2, h3, h4, p, span, li, td, th {
+        color: black !important;
+        text-shadow: none !important;
+    }
+
+    /* Hide UI navigation, logout, and print buttons when printing */
+    .btn-secondary, 
+    .btn-premium, 
+    button,
+    /* Target the specific nav headers I added */
+    .glass:has(a[href="/home"]),
+    .glass:has(button[onClick*="logout"]) {
+        display: none !important;
+    }
+
+    /* Hide the flashy background blobs */
+    [style*="z-index: -1"], 
+    [style*="filter: blur"] {
+        display: none !important;
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr !important;
+        display: block !important;
+        padding: 0 !important;
+    }
+
+    .glass {
+        margin-bottom: 20px !important;
+        page-break-inside: avoid;
+    }
+}
