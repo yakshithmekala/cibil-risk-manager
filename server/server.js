@@ -398,11 +398,50 @@ app.post("/analyze", authenticate, async (req, res) => {
 });
 
 // ===============================
-// CSV UPLOAD ROUTE
+// SIMULATION & KAGGLE DATA
 // ===============================
 
-app.post("/upload-csv", authenticate, upload.single("file"), async (req, res) => {
+app.get("/api/simulate-profile", authenticate, async (req, res) => {
+  const datasetPath = path.join(__dirname, 'data/credit_data.csv');
+  const results = [];
 
+  if (!fs.existsSync(datasetPath)) {
+    return res.status(404).json({ error: "Dataset not found. Please ensure server/data/credit_data.csv exists." });
+  }
+
+  fs.createReadStream(datasetPath)
+    .pipe(csv())
+    .on("data", (data) => results.push(data))
+    .on("end", () => {
+      if (results.length === 0) return res.status(404).json({ error: "Dataset is empty." });
+      
+      const randomRow = results[Math.floor(Math.random() * results.length)];
+      
+      // Map Kaggle fields to our internal format
+      // Kaggle fields: Age,Gender,Marital Status,Education,Employment Status,Income,Credit Score,Total Debt
+      const simulatedData = {
+        fullName: `Simulated User (${randomRow.Gender || 'N/A'})`,
+        paymentHistory: Math.min(100, Math.max(70, 100 - (Math.random() * 15))), // Heuristic
+        creditUtilization: Math.min(100, Math.floor(Math.random() * 50) + 10), // Heuristic
+        creditAge: Number(randomRow.Age) > 25 ? Number(randomRow.Age) - 18 : 2,
+        creditMix: randomRow.Education === 'PhD' || randomRow.Education === 'Master' ? 'good' : 'average',
+        hardInquiries: Math.floor(Math.random() * 3),
+        totalAccounts: Math.floor(Math.random() * 6) + 2,
+        activeLoans: randomRow['Type of Loan'] ? 1 : 0,
+        creditCards: Math.floor(Math.random() * 3) + 1,
+        totalCreditLimit: Number(randomRow.Income) * 2,
+        usedCreditLimit: (Number(randomRow.Income) * 2) * (Math.random() * 0.4)
+      };
+
+      res.status(200).json(simulatedData);
+    })
+    .on("error", (error) => {
+      console.error("CSV Read Error:", error);
+      res.status(500).json({ error: "Error reading dataset" });
+    });
+});
+
+app.post("/upload-csv", authenticate, upload.single("file"), async (req, res) => {
   const results = [];
 
   fs.createReadStream(req.file.path)
@@ -448,6 +487,7 @@ app.post("/upload-csv", authenticate, upload.single("file"), async (req, res) =>
       }
     });
 });
+
 
 app.get("/users", authenticate, async (req, res) => {
   try {

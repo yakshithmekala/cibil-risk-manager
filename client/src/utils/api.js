@@ -33,9 +33,11 @@ export const cibilAPI = {
     getUsers: () => api.get('/users'),
     deleteUser: (id) => api.delete(`/users/${id}`),
     updateUser: (id, data) => api.put(`/users/${id}`, data),
+    simulateProfile: () => api.get('/api/simulate-profile'),
     uploadCSV: (formData) => api.post('/upload-csv', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     }),
 };
+
 
 export default api;

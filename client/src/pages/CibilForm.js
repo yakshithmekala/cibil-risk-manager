@@ -84,7 +84,28 @@ const CibilForm = () => {
                     </div>
                 )}
 
+                <div style={{ marginBottom: '30px', textAlign: 'center' }}>
+                    <button 
+                        type="button" 
+                        onClick={async () => {
+                            try {
+                                setLoading(true);
+                                const res = await cibilAPI.simulateProfile();
+                                setFormData(res.data);
+                                setLoading(false);
+                            } catch (err) {
+                                setLoading(false);
+                                alert("Failed to fetch Kaggle data. Make sure the CSV is in server/data/credit_data.csv");
+                            }
+                        }}
+                        className="glass-hover" 
+                        style={{ padding: '10px 20px', borderRadius: '12px', background: 'rgba(99, 102, 241, 0.1)', border: '1px solid var(--primary)', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 auto' }}>
+                        <span>🪄</span> Auto-Fill from Kaggle Dataset
+                    </button>
+                </div>
+
                 <form onSubmit={handleSubmit}>
+
                     <div className="input-group" style={{ marginBottom: '20px' }}>
                         <label>Full Name</label>
                         <input type="text" name="fullName" value={formData.fullName} onChange={handleChange} required placeholder="Enter your full name" style={{ height: '50px', padding: '10px 15px' }} />
